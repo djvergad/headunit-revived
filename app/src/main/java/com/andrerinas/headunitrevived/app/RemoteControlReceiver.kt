@@ -1,0 +1,26 @@
+package com.andrerinas.headunitrevived.app
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.view.KeyEvent
+import com.andrerinas.headunitrevived.App
+
+import com.andrerinas.headunitrevived.utils.AppLog
+
+/**
+ * @author algavris
+ * *
+ * @date 03/06/2016.
+ */
+class RemoteControlReceiver : BroadcastReceiver() {
+
+    override fun onReceive(context: Context, intent: Intent) {
+        if (Intent.ACTION_MEDIA_BUTTON == intent.action) {
+            intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT, KeyEvent::class.java)?.let { event ->
+                AppLog.i("ACTION_MEDIA_BUTTON: " + event.keyCode)
+                App.provide(context).transport.send(event.keyCode, event.action == KeyEvent.ACTION_DOWN)
+            }
+        }
+    }
+}

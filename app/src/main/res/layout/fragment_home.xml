@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center">
+
+    <TextView
+        android:id="@+id/usb_status_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="USB Status: Disconnected"
+        android:textSize="24sp"
+        android:padding="16dp"/>
+
+    <TextView
+        android:id="@+id/projection_status_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Projection Status: Not Running"
+        android:textSize="24sp"
+        android:padding="16dp"/>
+
+</LinearLayout>

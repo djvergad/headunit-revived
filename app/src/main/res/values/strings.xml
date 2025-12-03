@@ -1,0 +1,39 @@
+<resources>
+    <string name="app_name">Headunit Revived</string>
+    <string name="menu">Menu</string>
+    <string name="settings">Settings</string>
+
+    <string name="title_activity_settings">SettingsActivity</string>
+    <string name="dummy_button">Dummy Button</string>
+    <string name="dummy_content">DUMMY\nCONTENT</string>
+    <string name="allowed">Allowed</string>
+    <string name="ignored">Ignored</string>
+    <string name="exit">Exit</string>
+    <string name="video">Video</string>
+    <string name="title">Headunit Revived</string>
+    <string name="remove">Remove</string>
+    <string name="usb">Usb</string>
+    <string name="mic_sample_rate">"Mic sample rate: %dkHz"</string>
+    <string name="keymap">Keymap</string>
+    <string name="night_mode">Night mode: %s</string>
+    <string name="bluetooth_address_s">Bluetooth address: %s</string>
+    <string name="enter_bluetooth_mac">Enter bluetooth MAC</string>
+    <string name="reset">Reset</string>
+    <string name="gps_for_navigation">Gps for navigation: %s</string>
+    <string name="enabled">Enabled</string>
+    <string name="disabled">Disabled</string>
+    <string name="resolution">Resolution: %s</string>
+    <string name="change_resolution">Change resolution</string>
+
+    <string name="usb_status">USB Status: %s</string>
+    <string name="projection_status">Projection Status: %s</string>
+    <string name="connected">Connected</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="running">Running</string>
+    <string name="not_running">Not Running</string>
+    <string name="no_android_auto_device_connected">No Android Auto Device connected. Please check USB connection.</string>
+    <string name="no_usb_device_connected">No USB device connected to device.</string>
+    <string name="press_back_again_to_exit">Press back again to exit</string>
+    <string name="debug_mode">Debug Mode: %s</string>
+</resources>
+
