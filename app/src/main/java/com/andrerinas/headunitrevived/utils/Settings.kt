@@ -166,6 +166,43 @@ class Settings(context: Context) {
         get() = prefs.getInt("margin-bottom", 0)
         set(value) { prefs.edit().putInt("margin-bottom", value).apply() }
 
+    // Touch Offset Calibration (in pixels)
+    // Top-Left corner offset
+    var touchOffsetTopLeftX: Int
+        get() = prefs.getInt("touch-offset-top-left-x", 0)
+        set(value) { prefs.edit().putInt("touch-offset-top-left-x", value).apply() }
+
+    var touchOffsetTopLeftY: Int
+        get() = prefs.getInt("touch-offset-top-left-y", 0)
+        set(value) { prefs.edit().putInt("touch-offset-top-left-y", value).apply() }
+
+    // Top-Right corner offset
+    var touchOffsetTopRightX: Int
+        get() = prefs.getInt("touch-offset-top-right-x", 0)
+        set(value) { prefs.edit().putInt("touch-offset-top-right-x", value).apply() }
+
+    var touchOffsetTopRightY: Int
+        get() = prefs.getInt("touch-offset-top-right-y", 0)
+        set(value) { prefs.edit().putInt("touch-offset-top-right-y", value).apply() }
+
+    // Bottom-Left corner offset
+    var touchOffsetBottomLeftX: Int
+        get() = prefs.getInt("touch-offset-bottom-left-x", 0)
+        set(value) { prefs.edit().putInt("touch-offset-bottom-left-x", value).apply() }
+
+    var touchOffsetBottomLeftY: Int
+        get() = prefs.getInt("touch-offset-bottom-left-y", 0)
+        set(value) { prefs.edit().putInt("touch-offset-bottom-left-y", value).apply() }
+
+    // Bottom-Right corner offset
+    var touchOffsetBottomRightX: Int
+        get() = prefs.getInt("touch-offset-bottom-right-x", 0)
+        set(value) { prefs.edit().putInt("touch-offset-bottom-right-x", value).apply() }
+
+    var touchOffsetBottomRightY: Int
+        get() = prefs.getInt("touch-offset-bottom-right-y", 0)
+        set(value) { prefs.edit().putInt("touch-offset-bottom-right-y", value).apply() }
+
     var startInFullscreenMode: Boolean
         get() = prefs.getBoolean("start-in-fullscreen-mode", true)
         set(value) { prefs.edit().putBoolean("start-in-fullscreen-mode", value).apply() }

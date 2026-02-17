@@ -637,6 +637,16 @@ class SettingsFragment : Fragment() {
             }
         ))
 
+        // Touch Calibration
+        items.add(SettingItem.SettingEntry(
+            stableId = "touchCalibration",
+            nameResId = R.string.touch_calibration,
+            value = getString(R.string.touch_calibration_description),
+            onClick = { _ ->
+                findNavController().navigate(R.id.action_settingsFragment_to_touchCalibrationFragment)
+            }
+        ))
+
         // --- Video Settings ---
         items.add(SettingItem.CategoryHeader("video", R.string.category_video))
 

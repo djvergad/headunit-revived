@@ -35,6 +35,7 @@ import com.andrerinas.headunitrevived.utils.SystemUI
 class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, VideoDimensionsListener {
 
     private lateinit var projectionView: IProjectionView
+    private var container: FrameLayout? = null
     private val videoDecoder: VideoDecoder by lazy { App.provide(this).videoDecoder }
     private val settings: Settings by lazy { Settings(this) }
     private var isSurfaceSet = false
@@ -131,7 +132,7 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
 
         AppLog.i("HeadUnit for Android Auto (tm) - Copyright 2011-2015 Michael A. Reid., since 2025 André Rinas All Rights Reserved...")
 
-        val container = findViewById<android.widget.FrameLayout>(R.id.container)
+        container = findViewById<android.widget.FrameLayout>(R.id.container)
         val displayMetrics = resources.displayMetrics
 
         if (settings.viewMode == Settings.ViewMode.TEXTURE) {
@@ -142,7 +143,7 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
             projectionView = textureView
-            container.setBackgroundColor(android.graphics.Color.BLACK)
+            container?.setBackgroundColor(android.graphics.Color.BLACK)
         } else if (settings.viewMode == Settings.ViewMode.GLES) {
             AppLog.i("Using GlProjectionView")
             val glView = com.andrerinas.headunitrevived.view.GlProjectionView(this)
@@ -151,7 +152,7 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
             projectionView = glView
-            container.setBackgroundColor(android.graphics.Color.BLACK)
+            container?.setBackgroundColor(android.graphics.Color.BLACK)
         } else {
             AppLog.i("Using SurfaceView")
             projectionView = ProjectionView(this)
@@ -164,7 +165,7 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
         HeadUnitScreenConfig.init(this, displayMetrics, settings)
 
         val view = projectionView as android.view.View
-        container.addView(view)
+        container?.addView(view)
 
         projectionView.addCallback(this)
 
@@ -184,7 +185,7 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
                 true
             }
 
-        container.addView(overlayView)
+        container?.addView(overlayView)
         overlayView.requestFocus()
         setFullscreen() // Call setFullscreen here as well
 
@@ -229,8 +230,8 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
     }
 
     private fun setFullscreen() {
-        val container = findViewById<View>(R.id.container)
-        SystemUI.apply(window, container, settings.startInFullscreenMode)
+        val containerView = container ?: findViewById<View>(R.id.container)
+        SystemUI.apply(window, containerView, settings.startInFullscreenMode)
 
         // Workaround for API < 19 (Jelly Bean) where Sticky Immersive Mode doesn't exist.
         // If bars appear (e.g. on touch), hide them again after a delay.
@@ -239,7 +240,7 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
                 if ((visibility and View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
                     // Bars are visible. Hide them again.
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                        SystemUI.apply(window, container, true)
+                        SystemUI.apply(window, containerView, true)
                     }, 2000)
                 }
             }
@@ -305,10 +306,76 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
         val verticalCorrection = HeadUnitScreenConfig.getVerticalCorrection()
 
         val pointerData = mutableListOf<Triple<Int, Int, Int>>()
+        
+        // Get screen dimensions - use container if available and has valid dimensions, 
+        // otherwise use window size or fallback
+        var screenWidth = container?.width?.toFloat() ?: 0f
+        var screenHeight = container?.height?.toFloat() ?: 0f
+        
+        if (screenWidth <= 0 || screenHeight <= 0) {
+            // Fallback to window dimensions if container dimensions are not available
+            val displayMetrics = resources.displayMetrics
+            screenWidth = displayMetrics.widthPixels.toFloat()
+            screenHeight = displayMetrics.heightPixels.toFloat()
+        }
+        
+        // Ensure we read fresh settings from SharedPreferences
+        val freshSettings = Settings(this)
+        
         repeat(event.pointerCount) { pointerIndex ->
             val pointerId = event.getPointerId(pointerIndex)
-            val x = event.getX(pointerIndex)
-            val y = event.getY(pointerIndex)
+            var x = event.getX(pointerIndex)
+            var y = event.getY(pointerIndex)
+
+            // Apply touch offset calibration using bilinear interpolation
+            if (screenWidth > 0 && screenHeight > 0) {
+                // Get touch offsets for each corner - read fresh from SharedPreferences
+                val offsetTLX = freshSettings.touchOffsetTopLeftX
+                val offsetTLY = freshSettings.touchOffsetTopLeftY
+                val offsetTRX = freshSettings.touchOffsetTopRightX
+                val offsetTRY = freshSettings.touchOffsetTopRightY
+                val offsetBLX = freshSettings.touchOffsetBottomLeftX
+                val offsetBLY = freshSettings.touchOffsetBottomLeftY
+                val offsetBRX = freshSettings.touchOffsetBottomRightX
+                val offsetBRY = freshSettings.touchOffsetBottomRightY
+                
+                android.util.Log.d("TOUCH_CAL", "Read offsets: TL($offsetTLX,$offsetTLY) TR($offsetTRX,$offsetTRY) BL($offsetBLX,$offsetBLY) BR($offsetBRX,$offsetBRY)")
+                
+                // Check if any offset is non-zero
+                val hasOffset = offsetTLX != 0 || offsetTLY != 0 ||
+                               offsetTRX != 0 || offsetTRY != 0 ||
+                               offsetBLX != 0 || offsetBLY != 0 ||
+                               offsetBRX != 0 || offsetBRY != 0
+                
+                if (hasOffset) {
+                    val offsetTL = Pair(offsetTLX, offsetTLY)
+                    val offsetTR = Pair(offsetTRX, offsetTRY)
+                    val offsetBL = Pair(offsetBLX, offsetBLY)
+                    val offsetBR = Pair(offsetBRX, offsetBRY)
+                    
+                    // Bilinear interpolation
+                    val normalizedX = x / screenWidth
+                    val normalizedY = y / screenHeight
+                    
+                    val topOffset = offsetTL.first * (1 - normalizedX) + offsetTR.first * normalizedX
+                    val bottomOffset = offsetBL.first * (1 - normalizedX) + offsetBR.first * normalizedX
+                    val interpOffsetX = topOffset * (1 - normalizedY) + bottomOffset * normalizedY
+                    
+                    val topOffsetY = offsetTL.second * (1 - normalizedX) + offsetTR.second * normalizedX
+                    val bottomOffsetY = offsetBL.second * (1 - normalizedX) + offsetBR.second * normalizedX
+                    val interpOffsetY = topOffsetY * (1 - normalizedY) + bottomOffsetY * normalizedY
+                    
+                    // Apply interpolated offset
+                    x += interpOffsetX
+                    y += interpOffsetY
+                    
+                    android.util.Log.d("TOUCH_CAL", "APPLIED OFFSET: raw(${event.getX(pointerIndex)},${event.getY(pointerIndex)}) offset($interpOffsetX,$interpOffsetY) final($x,$y)")
+                } else {
+                    android.util.Log.d("TOUCH_CAL", "NO OFFSET: all values are 0")
+                }
+            } else {
+                android.util.Log.d("TOUCH_CAL", "INVALID SCREEN DIM: $screenWidth x $screenHeight")
+            }
 
             val correctedX = (x * horizontalCorrection).toInt()
             val correctedY = (y * verticalCorrection).toInt()
