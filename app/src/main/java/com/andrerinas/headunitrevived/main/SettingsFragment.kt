@@ -2,7 +2,9 @@ package com.andrerinas.headunitrevived.main
 
 import android.app.AlertDialog
 import android.app.TimePickerDialog
+import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.view.LayoutInflater
@@ -57,6 +59,8 @@ class SettingsFragment : Fragment() {
     private var pendingMicInputSource: Int? = null
     private var pendingUseNativeSsl: Boolean? = null
     private var pendingAutoStartSelfMode: Boolean? = null
+    private var pendingAutoStartBtName: String? = null
+    private var pendingAutoStartBtMac: String? = null
     private var pendingScreenOrientation: Settings.ScreenOrientation? = null
     private var pendingAppLanguage: String? = null
     private var pendingThresholdLux: Int? = null
@@ -68,6 +72,10 @@ class SettingsFragment : Fragment() {
     private var pendingInsetTop: Int? = null
     private var pendingInsetRight: Int? = null
     private var pendingInsetBottom: Int? = null
+
+    private var pendingMediaVolumeOffset: Int? = null
+    private var pendingAssistantVolumeOffset: Int? = null
+    private var pendingNavigationVolumeOffset: Int? = null
 
     private var requiresRestart = false
     private var hasChanges = false
@@ -107,6 +115,8 @@ class SettingsFragment : Fragment() {
         pendingMicInputSource = settings.micInputSource
         pendingUseNativeSsl = settings.useNativeSsl
         pendingAutoStartSelfMode = settings.autoStartSelfMode
+        pendingAutoStartBtName = settings.autoStartBluetoothDeviceName
+        pendingAutoStartBtMac = settings.autoStartBluetoothDeviceMac
         pendingScreenOrientation = settings.screenOrientation
         pendingAppLanguage = settings.appLanguage
         
@@ -114,6 +124,10 @@ class SettingsFragment : Fragment() {
         pendingInsetTop = settings.insetTop
         pendingInsetRight = settings.insetRight
         pendingInsetBottom = settings.insetBottom
+
+        pendingMediaVolumeOffset = settings.mediaVolumeOffset
+        pendingAssistantVolumeOffset = settings.assistantVolumeOffset
+        pendingNavigationVolumeOffset = settings.navigationVolumeOffset
 
         // Intercept system back button
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
@@ -205,7 +219,13 @@ class SettingsFragment : Fragment() {
         pendingMicInputSource?.let { settings.micInputSource = it }
         pendingUseNativeSsl?.let { settings.useNativeSsl = it }
         pendingAutoStartSelfMode?.let { settings.autoStartSelfMode = it }
+        pendingAutoStartBtName?.let { settings.autoStartBluetoothDeviceName = it }
+        pendingAutoStartBtMac?.let { settings.autoStartBluetoothDeviceMac = it }
         pendingScreenOrientation?.let { settings.screenOrientation = it }
+
+        pendingMediaVolumeOffset?.let { settings.mediaVolumeOffset = it }
+        pendingAssistantVolumeOffset?.let { settings.assistantVolumeOffset = it }
+        pendingNavigationVolumeOffset?.let { settings.navigationVolumeOffset = it }
 
         val languageChanged = pendingAppLanguage != settings.appLanguage
         pendingAppLanguage?.let { settings.appLanguage = it }
@@ -223,7 +243,15 @@ class SettingsFragment : Fragment() {
             ContextCompat.startForegroundService(requireContext(), intent)
         }
 
-        pendingAutoConnectLastSession?.let { settings.autoConnectLastSession = it }
+        pendingAutoConnectLastSession?.let { 
+            settings.autoConnectLastSession = it 
+            if (it) {
+                val intent = Intent(requireContext(), AapService::class.java).apply {
+                    action = AapService.ACTION_CHECK_USB
+                }
+                ContextCompat.startForegroundService(requireContext(), intent)
+            }
+        }
 
         // Notify Service about Night Mode changes immediately
         val nightModeUpdateIntent = Intent(AapService.ACTION_REQUEST_NIGHT_MODE_UPDATE)
@@ -245,6 +273,24 @@ class SettingsFragment : Fragment() {
         updateSaveButtonState()
 
         Toast.makeText(context, getString(R.string.settings_saved), Toast.LENGTH_SHORT).show()
+
+        // Check for Overlay permission if BT Auto-start is configured
+        if (!pendingAutoStartBtMac.isNullOrEmpty() && Build.VERSION.SDK_INT >= 23) {
+            if (!android.provider.Settings.canDrawOverlays(requireContext())) {
+                MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
+                    .setTitle(R.string.overlay_permission_title)
+                    .setMessage(R.string.overlay_permission_description)
+                    .setPositiveButton(R.string.open_settings) { _, _ ->
+                        val intent = Intent(
+                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            android.net.Uri.parse("package:${requireContext().packageName}")
+                        )
+                        startActivity(intent)
+                    }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
+            }
+        }
 
         // Restart activity if language changed to apply new locale
         if (languageChanged) {
@@ -278,12 +324,16 @@ class SettingsFragment : Fragment() {
                         pendingMicInputSource != settings.micInputSource ||
                         pendingUseNativeSsl != settings.useNativeSsl ||
                         pendingAutoStartSelfMode != settings.autoStartSelfMode ||
+                        pendingAutoStartBtMac != settings.autoStartBluetoothDeviceMac ||
                         pendingScreenOrientation != settings.screenOrientation ||
                         pendingAppLanguage != settings.appLanguage ||
                         pendingInsetLeft != settings.insetLeft ||
                         pendingInsetTop != settings.insetTop ||
                         pendingInsetRight != settings.insetRight ||
-                        pendingInsetBottom != settings.insetBottom
+                        pendingInsetBottom != settings.insetBottom ||
+                        pendingMediaVolumeOffset != settings.mediaVolumeOffset ||
+                        pendingAssistantVolumeOffset != settings.assistantVolumeOffset ||
+                        pendingNavigationVolumeOffset != settings.navigationVolumeOffset
 
         hasChanges = anyChange
 
@@ -506,6 +556,15 @@ class SettingsFragment : Fragment() {
                 pendingAutoStartSelfMode = isChecked
                 checkChanges()
                 updateSettingsList()
+            }
+        ))
+
+        items.add(SettingItem.SettingEntry(
+            stableId = "autoStartBt",
+            nameResId = R.string.auto_start_bt_label,
+            value = if (pendingAutoStartBtName.isNullOrEmpty()) getString(R.string.bt_device_not_set) else pendingAutoStartBtName!!,
+            onClick = {
+                showBluetoothDeviceSelector()
             }
         ))
 
@@ -769,6 +828,15 @@ class SettingsFragment : Fragment() {
             }
         ))
 
+        items.add(SettingItem.SettingEntry(
+            stableId = "audioVolumeOffsets",
+            nameResId = R.string.audio_volume_offset,
+            value = "${(100 + (pendingMediaVolumeOffset ?: 0))}% / ${(100 + (pendingAssistantVolumeOffset ?: 0))}% / ${(100 + (pendingNavigationVolumeOffset ?: 0))}%",
+            onClick = {
+                showAudioOffsetsDialog()
+            }
+        ))
+
         // --- Debug Settings ---
         items.add(SettingItem.CategoryHeader("debug", R.string.category_debug))
 
@@ -845,6 +913,59 @@ class SettingsFragment : Fragment() {
         ))
 
         settingsAdapter.submitList(items)
+    }
+
+    private fun showAudioOffsetsDialog() {
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_audio_offsets, null)
+        
+        val seekMedia = dialogView.findViewById<android.widget.SeekBar>(R.id.seek_media)
+        val seekAssistant = dialogView.findViewById<android.widget.SeekBar>(R.id.seek_assistant)
+        val seekNavigation = dialogView.findViewById<android.widget.SeekBar>(R.id.seek_navigation)
+        
+        val textMedia = dialogView.findViewById<android.widget.TextView>(R.id.text_media_val)
+        val textAssistant = dialogView.findViewById<android.widget.TextView>(R.id.text_assistant_val)
+        val textNavigation = dialogView.findViewById<android.widget.TextView>(R.id.text_navigation_val)
+
+        // Mapping: 0 to 100 on SeekBar -> 0% to 200% Gain. Default is 50 (100% Gain, 0 Offset)
+        // Offset = (seekValue - 50) * 2
+        // seekValue = (offset / 2) + 50
+
+        seekMedia.progress = ((pendingMediaVolumeOffset ?: 0) / 2) + 50
+        seekAssistant.progress = ((pendingAssistantVolumeOffset ?: 0) / 2) + 50
+        seekNavigation.progress = ((pendingNavigationVolumeOffset ?: 0) / 2) + 50
+
+        val updateLabels = {
+            textMedia.text = "${(seekMedia.progress * 2)}%"
+            textAssistant.text = "${(seekAssistant.progress * 2)}%"
+            textNavigation.text = "${(seekNavigation.progress * 2)}%"
+        }
+        updateLabels()
+
+        val listener = object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                updateLabels()
+            }
+            override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
+        }
+
+        seekMedia.setOnSeekBarChangeListener(listener)
+        seekAssistant.setOnSeekBarChangeListener(listener)
+        seekNavigation.setOnSeekBarChangeListener(listener)
+
+        MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
+            .setTitle(R.string.audio_volume_offset)
+            .setView(dialogView)
+            .setPositiveButton(android.R.string.ok) { dialog, _ ->
+                pendingMediaVolumeOffset = (seekMedia.progress - 50) * 2
+                pendingAssistantVolumeOffset = (seekAssistant.progress - 50) * 2
+                pendingNavigationVolumeOffset = (seekNavigation.progress - 50) * 2
+                checkChanges()
+                updateSettingsList()
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun showCustomInsetsDialog() {
@@ -948,5 +1069,56 @@ class SettingsFragment : Fragment() {
                 dialog.dismiss()
             }
             .show()
+    }
+
+    private fun showBluetoothDeviceSelector() {
+        if (Build.VERSION.SDK_INT >= 31 && ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT), BT_CONNECT_PERMISSION_CODE)
+            return
+        }
+
+        val bluetoothManager = requireContext().getSystemService(Context.BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager
+        val adapter = bluetoothManager.adapter
+        val bondedDevices = adapter.bondedDevices.toList()
+
+        if (bondedDevices.isEmpty()) {
+            Toast.makeText(requireContext(), "No paired Bluetooth devices found", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val deviceNames = bondedDevices.map { it.name ?: "Unknown Device" }.toTypedArray()
+
+        MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
+            .setTitle(R.string.select_bt_device)
+            .setItems(deviceNames) { _, which ->
+                val device = bondedDevices[which]
+                pendingAutoStartBtMac = device.address
+                pendingAutoStartBtName = device.name
+                checkChanges()
+                updateSettingsList()
+            }
+            .setNeutralButton(R.string.remove) { _, _ ->
+                pendingAutoStartBtMac = ""
+                pendingAutoStartBtName = ""
+                checkChanges()
+                updateSettingsList()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        if (requestCode == BT_CONNECT_PERMISSION_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                showBluetoothDeviceSelector()
+            } else {
+                Toast.makeText(requireContext(), "Bluetooth permission denied", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    companion object {
+        private const val BT_CONNECT_PERMISSION_CODE = 101
+        private val SAVE_ITEM_ID = 1001
     }
 }

@@ -1,5 +1,7 @@
 import org.jetbrains.kotlin.config.KotlinCompilerVersion
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptions
+import java.util.Properties
+import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
@@ -94,8 +96,8 @@ android {
         minSdk = 16
 //        minSdk = 21 // 21 only for google play console. App should work in minSDK 16
         targetSdk = 36
-        versionCode = 43
-        versionName = "1.13.3"
+        versionCode = 47
+        versionName = "1.14.3"
         setProperty("archivesBaseName", "${applicationId}_${versionName}")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled = true
@@ -127,9 +129,19 @@ android {
 
         create("release") {
             storeFile = file("../headunit-release-key.jks") // Use your new keystore file name
-            storePassword = System.getenv("HEADUNIT_KEYSTORE_PASSWORD")
             keyAlias = "headunit-revived" // Replace with your key alias
-            keyPassword = System.getenv("HEADUNIT_KEY_PASSWORD")
+            val signingPropsFile = rootProject.file("secrets.properties")
+            if (signingPropsFile.exists()) {
+                val props = Properties()
+                props.load(FileInputStream(signingPropsFile))
+
+                storePassword = props.getProperty("HEADUNIT_KEYSTORE_PASSWORD")
+                keyPassword = props.getProperty("HEADUNIT_KEY_PASSWORD")
+            }
+            else {
+                storePassword = System.getenv("HEADUNIT_KEYSTORE_PASSWORD")
+                keyPassword = System.getenv("HEADUNIT_KEY_PASSWORD")
+            }
         }
     }
 
@@ -137,7 +149,9 @@ android {
         getByName("release") {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-project.txt")
-            signingConfig = signingConfigs.getByName("release")
+            if (signingConfigs.getByName("release").storeFile != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             multiDexKeepProguard = file("multidex-config.pro")
         }
         getByName("debug") {
@@ -149,6 +163,7 @@ android {
 
     lint {
         abortOnError = false
+        disable += "PackagedPrivateKey"
     }
 
     compileOptions {
